@@ -36,8 +36,9 @@ const generateAccessTokenAndRefreshToken = async (userId) => {
 // send response to frontend & if not created send error
 
 const registerUser = asyncHandler(async (req, res) => {
+  console.log(req.body);
   const { username, email, fullName, Password } = req.body;
-
+  
   if (!username || !email || !fullName || !Password) {
     throw new apiError(400, "All fields are required");
   }
@@ -51,7 +52,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const avatarLocalPath = req.files?.avatar[0]?.path; // upload on localserver
   // const coverImageLocalPath = req.files?.coverImage[0]?.path; // upload on localserver
-
+   console.log("avatarlocalpath", avatarLocalPath)
   let coverImageLocalPath;
 
   if (
