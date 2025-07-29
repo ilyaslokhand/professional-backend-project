@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import getCloudinaryPublicId from "../utils/getCloudinaryPublicId.js";
+import mongoose from "mongoose";
 
 // create a separte method fo parsing the acccess and refresh token
 
@@ -182,10 +183,11 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     throw new apiError(401, "Unauthorized Request");
   }
 
-  const decodedRefreshToken = jwt.verify;
-  {
-    incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET;
-  }
+  const decodedRefreshToken = jwt.verify(
+  incomingRefreshToken,
+  process.env.REFRESH_TOKEN_SECRET
+);
+
 
   const existedUser = await User.findById(decodedRefreshToken?._id);
 
@@ -368,6 +370,120 @@ const updatecoverImageLocalPath = asyncHandler(async (req, res) => {
     .json(new apiResponse(updatedUser, 200, "cover image updated succesfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async(req,res)=>{
+  const {username} = req.params;
+   if(!username?.trim()){
+    throw new apiError(400, "username is missing");
+   }
+
+  const channel =  await User.aggregate([{
+    $match:{
+      username: username?.toLowerCase(),
+    }
+  },
+
+  {
+    $lookup:{
+      from: "subscriptions", // Subscription change to  subscriptions as mongodb name is plural in db
+      localField: "_id",
+      foreignField: "channel",
+      as: "subscribers",
+    }
+  },
+
+  {
+    $lookup:{
+      from: "subscriptions",
+      localField: "_id",
+      foreignField: "subscriber",
+      as: "subscribedTo",
+    }
+  },
+
+  {
+  $addFields: {
+    subscriberscount: { $size: "$subscribers" }, //count of subscribers
+    subscribedToCount: { $size: "$subscribedTo" }, //count of channels subscribed to
+    isSubscribed: {
+      $cond: {
+        if: { $in: [req.user._id, "$subscribers.subscriber"] },  // / check if the currenr user is subscribed to the channel
+        then: true,
+        else: false
+      }
+    }
+  }
+},
+  {
+    $project:{
+      fullName:1,
+      username:1,
+      avatar:1,
+      coverImage:1,
+      subscriberscount:1,
+      subscribedToCount:1,
+      isSubscribed:1,
+    }
+  }
+
+])
+console.log("channel", channel);
+  
+  if(!channel?.length){
+    throw new apiError(404, "Channel not found");
+  }
+
+  return res.status(200).json(
+    new apiResponse(channel[0], 200, "User channel profile fetched successfully")
+  )
+
+});
+
+const getWatchHistory = asyncHandler(async(req,res)=>{
+  const currentUser = await User.aggregate([
+    {
+      $match: {_id: new ObjectId(req.user._id)}
+    },
+
+    {
+      $lookup:{
+       from: "videos",
+       localField:"WatchHistory",
+       foreignField: "_id",
+       as: "watchHistoryVideos",
+       pipeline:[
+        {
+          $lookup:{
+            from: "users",
+            localField: "videoOwner",
+            foreignField: "_id",
+            as: "videoOwnerDetails",
+            pipeline:[
+              {
+                $project:{
+                  fullName:1,
+                  username:1,
+                  avatar:1,
+                  coverImage:1,
+                }
+              }
+            ]
+          }
+        }
+       ]
+      }
+    }
+  ]);
+   console.log("currentUser", currentUser);
+  if(!currentUser?.length){
+    throw new apiError(404, "user not found");
+  };
+
+  return res.status(200).json(
+    new apiResponse(currentUser[0].watchHistoryVideos,200, "user watch history fetched successfully")
+  )
+
+})
+
 export {
   registerUser,
   loginUser,
@@ -378,4 +494,6 @@ export {
   updateAccountDetails,
   updateAvatarLocalPath,
   updatecoverImageLocalPath,
+  getUserChannelProfile,
+  getWatchHistory
 };
