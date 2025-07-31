@@ -396,7 +396,7 @@ const getUserChannelProfile = asyncHandler(async(req,res)=>{
       from: "subscriptions",
       localField: "_id",
       foreignField: "subscriber",
-      as: "subscribedTo",
+      as: "subscribedTo", // how many channels i have subscribed to
     }
   },
 
@@ -441,7 +441,7 @@ console.log("channel", channel);
 const getWatchHistory = asyncHandler(async(req,res)=>{
   const currentUser = await User.aggregate([
     {
-      $match: {_id: new ObjectId(req.user._id)}
+      $match: {_id: new ObjectId(req.user._id)} // we write objectid bbecause here mongoose not work internally inside pipeline
     },
 
     {
